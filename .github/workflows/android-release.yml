@@ -43,6 +43,22 @@ jobs:
       - name: Build packages
         run: pnpm --filter @selfhostauth/core --filter @selfhostauth/client build
 
+      - name: Bootstrap native Android project (not committed in repo)
+        working-directory: apps/mobile
+        run: |
+          if [ ! -d android ]; then
+            npx --yes @react-native-community/cli@13 init Selfhostauth \
+              --version 0.76 --directory /tmp/rn-template --skip-install --npm
+            cp -r /tmp/rn-template/android ./android
+          fi
+          # pnpm doesn't hoist this, but the template's settings.gradle expects it
+          # at apps/mobile/node_modules/@react-native/gradle-plugin
+          RN_DIR=$(node -p "require('path').dirname(require.resolve('react-native/package.json'))")
+          GP=$(node -p "require('path').dirname(require.resolve('@react-native/gradle-plugin/package.json',{paths:['$RN_DIR']}))")
+          mkdir -p node_modules/@react-native
+          [ -e node_modules/@react-native/gradle-plugin ] || ln -s "$GP" node_modules/@react-native/gradle-plugin
+          ls -d android
+
       - name: Build release APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease --no-daemon

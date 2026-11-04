@@ -44,15 +44,25 @@ jobs:
         run: pnpm --filter @selfhostauth/core --filter @selfhostauth/client build
 
       - name: Bootstrap native Android project (not committed in repo)
+        timeout-minutes: 10
         working-directory: apps/mobile
         run: |
           if [ ! -d android ]; then
-            npx --yes @react-native-community/cli@13 init Selfhostauth \
-              --version 0.76 --directory /tmp/rn-template --skip-install --npm
-            cp -r /tmp/rn-template/android ./android
+            mkdir /tmp/tpl && cd /tmp/tpl
+            npm pack "@react-native-community/template@0.76" --silent
+            tar xzf *.tgz
+            cd "$GITHUB_WORKSPACE/apps/mobile"
+            cp -r /tmp/tpl/package/template/android ./android
+            chmod +x android/gradlew
+            # the template ships as "HelloWorld"; rename to match the template
+            # init command's output (component name "Selfhostauth")
+            grep -rIl "HelloWorld" android | xargs sed -i 's/HelloWorld/Selfhostauth/g'
+            grep -rIl "helloworld" android | xargs sed -i 's/helloworld/selfhostauth/g'
+            find android -depth -type d -name helloworld | while read d; do
+              mv "$d" "$(dirname "$d")/selfhostauth"
+            done
           fi
           # pnpm doesn't hoist this, but the template's settings.gradle expects it
-          # at apps/mobile/node_modules/@react-native/gradle-plugin
           RN_DIR=$(node -p "require('path').dirname(require.resolve('react-native/package.json'))")
           GP=$(node -p "require('path').dirname(require.resolve('@react-native/gradle-plugin/package.json',{paths:['$RN_DIR']}))")
           mkdir -p node_modules/@react-native
